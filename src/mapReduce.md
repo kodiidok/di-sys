@@ -10,8 +10,13 @@
     - [**1.1 Describe what might have caused this issue.**](#11-describe-what-might-have-caused-this-issue)
     - [**1.2 Suggest a possible solution to this problem. You need to specifically look in to the distributed system features.**](#12-suggest-a-possible-solution-to-this-problem-you-need-to-specifically-look-in-to-the-distributed-system-features)
     - [**1.3 Comment on the efficiency of the database that is utilized here and suggest a better approach to handle it.**](#13-comment-on-the-efficiency-of-the-database-that-is-utilized-here-and-suggest-a-better-approach-to-handle-it)
+  - [**2. Review**](#2-review)
+    - [**2.1 Pros and Cons**](#21-pros-and-cons)
+    - [**2.2 Unclear**](#22-unclear)
 
 <div style="page-break-after: always;"></div>
+
+![map reduce overview](images/map%20reduce/map-reduce-overview.png)
 
 ## **1. Map Reduce for Word Count**
 
@@ -83,3 +88,29 @@
 
     A distributed key-value store with strong concurrency controls to manage simultaneous updates from Map tasks. Implement effective locking to maintain consistency and prevent overcounting. Making sure the database is horizontally scalable to handle a high volume of concurrent requests and data. Ensure fault tolerance with features like automatic failover and data replication. Optimize indexing and query performance for efficient word count retrieval. Implement monitoring and management tools for proactive maintenance. This database design will efficiently support word count processing in the MapReduce job while ensuring scalability, fault tolerance, and data consistency.
 </div>
+
+## **2. Review**
+
+### **2.1 Pros and Cons**
+
+    /* pros */
+    MapReduce scales well:
+        N "worker" computers (might) achieve Nx throughput
+		    Maps()s can run in parallel, since they don't interact
+		    Same for Reduce()s
+        i.e More computers -> more throughput
+
+
+    /* cons */
+    No interaction or state (other than via intermediate output).
+    No iteration
+    No real-time or streaming processing
+
+### **2.2 Unclear**
+
+    Sending app code to servers
+    Tracking which tasks have finished
+    “Shuffling" intermediate data from Maps to Reduces
+    Balancing load over servers
+    Recovering from failures
+
