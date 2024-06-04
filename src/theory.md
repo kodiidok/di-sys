@@ -26,6 +26,21 @@
       - [**3.2.3 Serialization and Marshalling**](#323-serialization-and-marshalling)
       - [**3.2.4 Protocol Buffer**](#324-protocol-buffer)
   - [**4. Models**](#4-models)
+    - [**4.1 Two Generals Problem**](#41-two-generals-problem)
+    - [**4.2 Byzantine Generals Problem**](#42-byzantine-generals-problem)
+    - [**4.3 Systems Models**](#43-systems-models)
+    - [**4.4 Network Behaviour**](#44-network-behaviour)
+    - [**4.5 Node Behaviour**](#45-node-behaviour)
+    - [**4.6 Time Behaviour**](#46-time-behaviour)
+    - [**4.7 Violations of Synchrony**](#47-violations-of-synchrony)
+      - [**4.7.1 Congestion**](#471-congestion)
+      - [**4.7.2 Contention**](#472-contention)
+      - [**4.7.3 Stop the World Garbage Collection**](#473-stop-the-world-garbage-collection)
+      - [**4.7.4 Page Fault and Thrashing**](#474-page-fault-and-thrashing)
+      - [**4.7.5 Priority Inversion**](#475-priority-inversion)
+    - [**4.8 Availability**](#48-availability)
+    - [**4.9 Faliure Detection**](#49-faliure-detection)
+  - [**5. Time**](#5-time)
 
 <div style="page-break-after: always;"></div>
 
@@ -358,5 +373,129 @@ service PaymentService{
 ```
 
 ## **4. Models**
+
+### **4.1 Two Generals Problem**
+
+![two generals problem](images/theory/two%20generals%20problem.png)
+![two generals problem example](images/theory/two%20generals%20problem%20example.png)
+
+TCP is reliable, but doesn't solve two generals problem.
+
+![tcp 4 way handshake](images/theory/tcp%204%20way%20handshake.png)
+![keep sending many messages until ack](images/theory/keep%20sending%20many%20messages%20until%20ack.png)
+![keep sending periodic messages until ack](images/theory/keep%20sending%20periodic%20messages%20until%20ack.png)
+
+### **4.2 Byzantine Generals Problem**
+
+![byzantine generals problem](images/theory/byzantine%20generals%20problem.png)
+
+    - Up to f generals might behave maliciously
+    - Honest generals don’t know who the malicious ones are
+    - The malicious generals may collude
+    - Nevertheless, honest generals must agree on plan
+
+    need 3f+1 generals in total to tolerate f malicious generals (<1/3 may be malicious)
+
+### **4.3 Systems Models**
+
+    - Network behavior ( messages may be loss)
+	- Node behavior (crashes / faults ) 
+	- Time behavior  (latency)
+
+### **4.4 Network Behaviour**
+
+    - Reliable (perfect) links: Message is received if and only id it is sent 
+    - Fair-loss links: Message may or be lost, duplicated, or reordered. if kept retrying message eventually gets through 
+    - Arbitrary links: A malicious adversity may interfere with messages (eavesdrop, modify, drop, spoof, reply)
+
+    - Network partitioning : some links dropping/ delaying all messages for extended period of time 
+
+### **4.5 Node Behaviour**
+
+    - Crash-Stop: A node is faulty if it crashes (at any time). After crashing, it stops execution (forever)
+    - Crash-Recovery: A node may crash at any moment, losing its in-memory (volatite) 	state. It may resume executing sometime later 
+    - Byzantine (fail-arbitrary): A node is faulty if it deviates from the algorithm, Faulty nodes may do anything, including crashing or malicious
+
+### **4.6 Time Behaviour**
+
+    - Synchronous: Message latency no greater than a known upper bound. Nodes execute algorithm at a known speed
+    - Partially synchronous: System is asynchronous for some finite ( but, unknown) period of 	time, Synchronous otherwise
+    - Asynchronous: Messages can be delayed arbitrarily. Nodes can pause execution arbitrarily. No timing guaranties 
+
+### **4.7 Violations of Synchrony**
+    
+    Networks
+      - predictive latency
+      - Message loss requiring retry 
+      - Congestion/ contention causing queueing 
+      - Network/route reconfiguration 
+
+    Nodes
+      - predictable speed
+      - Operating system scheduling issues (priority inversion)
+      - Stop-the-world garbed collection pause 
+      - Page fault (trashing)
+
+
+#### **4.7.1 Congestion**
+
+    - Congestion occurs when there is too much traffic on the network, and the available resources (like bandwidth or buffers) are not enough to handle it.
+    - It causes delays, packet loss, and reduced throughput (data transfer rate).
+    - Congestion can happen due to high traffic volumes, sudden traffic bursts, inefficient routing, or network failures.
+
+#### **4.7.2 Contention**
+
+    - Contention happens when multiple devices or processes try to access or use the same shared resource at the same time.
+    - It leads to increased latency (delay) because entities have to wait for the resource to become available.
+    - Contention can also reduce overall throughput and cause unfairness, where some entities get more access than others.
+
+#### **4.7.3 Stop the World Garbage Collection**
+
+    In programming, garbage collection is the process of automatically reclaiming memory occupied by objects or data structures that are no longer in use by the program. This helps prevent memory leaks and simplifies memory management for developers.
+
+    The "Stop-the-world" part of the phrase refers to the fact that, in some garbage collection implementations, the entire application or program execution is temporarily suspended or paused while the garbage collection process is happening. This means that all running threads or processes are stopped, and no code is executing during this period.
+
+#### **4.7.4 Page Fault and Thrashing**
+
+    A page fault is an exception or interrupt that occurs when a program tries to access a memory page that is not currently in the computer's physical memory (RAM). When this happens, the operating system needs to bring the required page from disk into memory before the program can continue executing.
+
+    Thrashing is a situation that occurs when a computer spends most of its time handling page faults, instead of executing productive instructions. This happens when the system's physical memory is too small to hold the working set of active memory pages required by the running programs.
+
+#### **4.7.5 Priority Inversion**
+
+    A scheduling problem that causes a high-priority task to be blocked or delayed by a lower-priority task.
+
+    In operating systems, priority inversion can happen due to various reasons, such as:
+
+    - Sharing of resources: If a low-priority task holds a resource (like a lock or a semaphore) that a high-priority task needs, the high-priority task may get blocked until the low-priority task releases the resource.
+    - Interrupts: If a low-priority task is interrupted by a higher-priority task, but then the higher-priority task gets blocked (e.g., waiting for I/O), the low-priority task may continue executing, delaying the higher-priority task.
+    - Scheduling algorithms: Some scheduling algorithms can cause priority inversion due to their design or implementation.
+
+### **4.8 Availability**
+
+    Availability – Uptime -> fraction of time that a service is functioning correctly
+
+    Two nines -> 99%	(down 3.7 days /year)
+    Three nines -> 99.9%	(down 8.8 hours /year)
+    Four nines -> 99.99%	(down 53 minutes /year)
+    Five nines -> 99.999%	(down 5.3 minutes /year)
+
+### **4.9 Faliure Detection**
+
+    For crash stop/ crash recovery : send message, wait response, label node as crashed if no reply within some timeout
+
+    Cannot tell the difference between crashed node, temporarily unresponsive node, lost messages, and delayed messages.
+
+    Perfect timeout-based failure detectors exists only in a synchronous crash-stop system with reliable links. 
+
+    Eventually perfect failure detector 
+    - May temporarily label a node as crashed even though it is correct
+    - May temporarily label a node as correct, even though it has crashed
+    - But, eventually, label a node as crashed if and only if it has crashed  
+
+
+## **5. Time**
+
+
 
 </div>
