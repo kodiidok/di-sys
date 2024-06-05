@@ -41,6 +41,18 @@
     - [**4.8 Availability**](#48-availability)
     - [**4.9 Faliure Detection**](#49-faliure-detection)
   - [**5. Time**](#5-time)
+    - [**5.1 Time for Distributed Systems**](#51-time-for-distributed-systems)
+    - [**5.2 Physical Clocks**](#52-physical-clocks)
+    - [**5.3 Atomic Clocks**](#53-atomic-clocks)
+    - [**5.4 Skew and Drift**](#54-skew-and-drift)
+    - [**5.5 Logical Clocks**](#55-logical-clocks)
+    - [**5.6 Leap Seconds**](#56-leap-seconds)
+    - [**5.7 Time Sync, NTP and PTP**](#57-time-sync-ntp-and-ptp)
+      - [**5.7.1 Client Sever Sync**](#571-client-sever-sync)
+    - [**5.8 Cristian's Algorithm**](#58-cristians-algorithm)
+    - [**5.9 Berkeley Algorithm**](#59-berkeley-algorithm)
+    - [**5.10 Time-of-Day and Monotonic Clocks**](#510-time-of-day-and-monotonic-clocks)
+  - [**6. Ordering**](#6-ordering)
 
 <div style="page-break-after: always;"></div>
 
@@ -495,6 +507,88 @@ TCP is reliable, but doesn't solve two generals problem.
 
 
 ## **5. Time**
+
+    For software systems:
+
+        Time is represented as numerical values, like timestamps or durations.
+        Software uses time for scheduling tasks, tracking events, and measuring performance.
+        Time is typically obtained from hardware clocks or external time sources.
+
+    For Operating Systems:
+
+        Operating systems use time for scheduling processes and managing resources.
+        They have a system clock and timers to keep track of time.
+        Time is important for fair resource allocation and maintaining system stability.
+
+    For Distributed Systems:
+
+        In distributed systems, there is no single global notion of time across different machines.
+        They use techniques like logical clocks or time synchronization protocols to establish a consistent view of time.
+        Consistent time is crucial for coordinating operations and ensuring data consistency across different nodes.
+
+### **5.1 Time for Distributed Systems**
+
+    - Scheduler  (also in operating systems) : For Scheduling, Timeouts, Failure Detectors, Retry time , etc..
+    - Performance measurement statistics, profiling : Time a process had been running, CPU usage, etc
+    - Log files & databases : Records when an event occurs
+    - Date with timelimited validity : cache entries   DNS / TLS / etc 
+
+![types of clocks](images/theory/types%20of%20clocks.png)
+
+### **5.2 Physical Clocks**
+
+    Physical clocks are hardware devices that measure the passage of time. These clocks use oscillators, such as quartz crystals or atomic oscillators, to keep track of time. However, physical clocks are subject to imperfections and can experience variations in their timekeeping due to factors like temperature, aging, and manufacturing tolerances.
+
+### **5.3 Atomic Clocks**
+
+    Atomic clocks and GPS clocks are highly precise physical clocks. Atomic clocks use the vibrations of atoms to measure time with incredible accuracy, while GPS clocks synchronize with the time signals transmitted by the Global Positioning System (GPS) satellites. These clocks are used as reference standards for time measurement.
+
+### **5.4 Skew and Drift**
+
+    Skew refers to the difference in time between two clocks at a given moment. 
+    
+    Drift is the rate at which the clocks diverge from each other over time. 
+    
+    These issues arise due to various factors, such as network latencies, clock imperfections, and environmental conditions.
+
+### **5.5 Logical Clocks**
+
+    Logical clocks are a software-based approach to maintaining a consistent notion of time in distributed systems. They use logical timestamps, rather than physical time, to order events in a system. Logical clocks help maintain causality and ordering of events, even when physical clocks are not perfectly synchronized.
+
+### **5.6 Leap Seconds**
+
+    Leap seconds are periodic adjustments made to UTC to keep it synchronized with the Earth's rotation. These adjustments are necessary because atomic clocks are more stable than the Earth's rotation. Leap seconds are either added or removed from UTC to compensate for the difference between TAI and UT1.
+
+### **5.7 Time Sync, NTP and PTP**
+
+    NTP and PTP are protocols used for synchronizing clocks in distributed systems. NTP is widely used for internet time synchronization, while PTP is designed for highly precise time synchronization in local area networks, often used in industrial and scientific applications.
+
+#### **5.7.1 Client Sever Sync**
+
+    In distributed systems, it is essential to synchronize the time between servers and clients. This synchronization ensures that events are properly ordered and that timestamps are consistent across the system. Time synchronization protocols like NTP are commonly used for this purpose.
+
+### **5.8 Cristian's Algorithm**
+
+    Involves a client requesting the current time from a server and adjusting its clock based on the server's response, taking into account the network delay.
+
+![cristians algorithm](images/theory/cristians%20algorithm.png)
+![better cristians algorithm](images/theory/better%20cristians%20algorithm.png)
+
+### **5.9 Berkeley Algorithm**
+
+    Iterative clock synchronization algorithm that aims to improve the accuracy of clock synchronization over time. It involves periodically exchanging time information between multiple clocks and adjusting them based on the received data.
+
+![berkeley algorithm](images/theory/berkeley%20algorithm.png)
+
+### **5.10 Time-of-Day and Monotonic Clocks**
+
+    Time of Day clocks (e.g., system clocks) represent the current date and time, but they can be adjusted, which can cause discontinuities. 
+    
+    Monotonic clocks, on the other hand, are clocks that always increase monotonically, even across system reboots or time adjustments. 
+    
+    Monotonic clocks are useful for measuring elapsed time and ordering events, while Time of Day clocks are used for absolute time representation.
+
+## **6. Ordering**
 
 
 
