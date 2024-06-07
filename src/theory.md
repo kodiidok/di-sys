@@ -79,6 +79,24 @@
       - [**7.10.4 FIFO Total Order**](#7104-fifo-total-order)
     - [**7.11 Implementing Fault Tolerance in Broadcast Protocols**](#711-implementing-fault-tolerance-in-broadcast-protocols)
   - [**8. Replication**](#8-replication)
+    - [**8.1 Probability of Faults in Replication**](#81-probability-of-faults-in-replication)
+    - [**8.2 Availability and Faultiness**](#82-availability-and-faultiness)
+    - [**8.3 Retry and Deduplication**](#83-retry-and-deduplication)
+    - [**8.4 Idempotence**](#84-idempotence)
+    - [**8.5 Retry Semantics**](#85-retry-semantics)
+      - [**8.5.1 At Most Once**](#851-at-most-once)
+      - [**8.5.2 At Least Once**](#852-at-least-once)
+      - [**8.5.3 Exactly Once**](#853-exactly-once)
+    - [**8.6 Timestamps and Tombstones**](#86-timestamps-and-tombstones)
+    - [**8.8 Replica Reconciling**](#88-replica-reconciling)
+    - [**8.9 Concurrent Writes by Different Clients**](#89-concurrent-writes-by-different-clients)
+    - [**8.10 Read After Write Consistency (RAW)**](#810-read-after-write-consistency-raw)
+      - [**8.10.1 Strategies to Achieve RAW Consistency**](#8101-strategies-to-achieve-raw-consistency)
+    - [**8.11 Quorum**](#811-quorum)
+    - [**8.12 State Machine Replication**](#812-state-machine-replication)
+      - [**8.12.1 Limitations**](#8121-limitations)
+    - [**8.13 Leaders for Consensus**](#813-leaders-for-consensus)
+  - [**9. Consistency in Replicas**](#9-consistency-in-replicas)
 
 <div style="page-break-after: always;"></div>
 
@@ -800,6 +818,195 @@ TCP is reliable, but doesn't solve two generals problem.
 
 ## **8. Replication**
 
+    Creating copies of data or services across multiple nodes.
+    Why it is Needed?
 
+        - Improve fault tolerance.
+        - Enhance data availability.
+        - Increase system performance.
+
+    *** Can implement total order broadcast by sending all messages via a single LEADER 
+        Problem : What if leader crashes ? Become unavailable ? 
+
+### **8.1 Probability of Faults in Replication**
+
+    More replicas reduce the likelihood of total data loss.
+    Higher fault tolerance with more replicas.
+
+![probability of faults in replica](images/theory/probability%20of%20faults%20in%20replica.png)
+
+### **8.2 Availability and Faultiness**
+
+    Increased replicas improve availability.
+    Fault tolerance depends on the number of replicas and replication strategy.
+
+![availability and faultiness](images/theory/availability%20and%20faultiness.png)
+
+### **8.3 Retry and Deduplication**
+
+    Retry: Resending failed operations.
+    Deduplication: Ensuring duplicate operations are not processed multiple times.
+
+### **8.4 Idempotence**
+
+![idempotence](images/theory/idempotence.png)
+
+```javascript
+class Post {
+    constructor() {
+        this.likeSet = new Set();
+    }
+
+    like(userId) {
+        this.likeSet.add(userId);
+    }
+
+    getLikeCount() {
+        return this.likeSet.size;
+    }
+}
+
+// Example Usage
+const post = new Post();
+
+// User likes the post
+post.like('user');
+console.log(post.getLikeCount()); 
+```
+
+### **8.5 Retry Semantics**
+
+    At Most One: Operation may fail or succeed once, no duplicates.
+    At Least One: Operation guaranteed to succeed at least once, may have duplicates.
+    Exactly One: Operation succeeds exactly once, no duplicates
+
+#### **8.5.1 At Most Once**
+
+    Operation may fail or succeed once, no duplicates.
+
+    Use Case: Payment Processing
+
+    Example: When a payment is initiated, it's crucial to ensure that the transaction either completes successfully or fails without any retries to avoid double charging the customer.
+
+    Why: Duplicate operations could lead to multiple charges, which would be unacceptable.
+
+#### **8.5.2 At Least Once**
+
+    Operation guaranteed to succeed at least once, may have duplicates.
+
+    Use Case: Log Delivery
+
+    Example: In a distributed logging system, logs must be reliably delivered to a central server or data store. If a log message is lost, it should be retransmitted until acknowledged.
+    
+    Why: It’s more important that logs are eventually received, even if it means some logs are received multiple times, which can be handled with deduplication on the receiving end.
+    
+    Use Case: Event Notification
+
+    Example: Sending notifications to users about important events (e.g., system alerts, transaction confirmations) should ensure delivery, even if the same notification is sent multiple times.
+    
+    Why: Missing notifications can be critical, whereas receiving duplicates is less problematic.
+
+#### **8.5.3 Exactly Once**
+
+    Operation succeeds exactly once, no duplicates. (Use idempotent operations)
+
+    Use Case: Distributed Database Writes
+
+    Example: Writing to a distributed database where each write operation must be applied exactly once to maintain data consistency.
+
+    Why: Duplicate writes can corrupt the database state, and missed writes can lead to data loss. Implementing an exactly-once guarantee ensures that each write is processed only once, preserving data integrity.
+
+    Use Case: Message Queue Processing
+
+    Example: In a distributed message queue system, each message should be processed exactly once to ensure accurate downstream processing.
+
+    Why: Processing a message multiple times can lead to duplicated actions (e.g., sending the same email multiple times), and missing messages can lead to data loss or incomplete processing.
+
+### **8.6 Timestamps and Tombstones**
+
+![timestamps and tombstones](images/theory/timestamps%20and%20tombstones.png)
+
+### **8.8 Replica Reconciling**
+
+    Process of ensuring all replicas have the same data.
+    Techniques: Conflict resolution, merging updates.
+
+![replica reconciling](images/theory/replica%20reconciling.png)
+
+### **8.9 Concurrent Writes by Different Clients**
+    
+    Last Write Wins: The latest write operation overrides previous ones.
+
+![last write wins](images/theory/last%20write%20wins.png)
+
+    Multi-Value Register: All concurrent writes are stored, resolved later.    
+
+![mulit value register](images/theory/multi%20value%20register.png)
+
+### **8.10 Read After Write Consistency (RAW)**
+
+    Ensures that a read operation immediately reflects a prior write operation. This means that immediately after a write, the updated data should be visible to any read request.
+    It provides a guarantee that after you make a change to data, you can immediately read the latest version of that data.
+
+    Single Master Systems:
+    - Write operations are directed to a single master node, and reads can be served from the same master or a synchronized replica. Ensures the latest data is available immediately after a write.
+
+    Quorum-Based Systems:
+    - Writes and reads are acknowledged based on a majority quorum.
+    Ensures that after a write, a majority of replicas reflect the change, so subsequent reads can get the updated data.
+
+    Synchronous Replication:
+    - Write operations are propagated to all replicas synchronously.
+    Ensures that all replicas have the updated data immediately after a write.
+
+#### **8.10.1 Strategies to Achieve RAW Consistency**
+
+    Primary-Secondary Replication:
+    Use a primary node for writes and ensure secondary nodes are updated synchronously.
+    
+    Strong Consistency Protocols:
+    Implement protocols like Paxos or Raft to ensure that a write is acknowledged only when it has been committed by a majority of nodes.
+    
+    Immediate Cache Invalidation:
+    Invalidate or update cache entries immediately after a write to ensure that subsequent reads fetch the latest data from the database.
+
+### **8.11 Quorum**
+    Read Quorum: Minimum number of replicas to read from for consistency.
+    Write Quorum: Minimum number of replicas to write to for consistency.
+    
+    Majority Quorum: A majority of nodes must agree on an operation for it to be considered successful. 
+    r = w = (n + 1)/2
+
+    Read Repair: Inconsistent data detected during reads is corrected and synchronized with other replicas.
+
+![read and write quorum diagram](images/theory/read%20and%20write%20quorum%20diagram.png)
+![read and write quorum](images/theory/read%20and%20write%20quorum.png)
+![read repair](images/theory/read%20repair.png)
+
+### **8.12 State Machine Replication**
+    Ensuring all replicas follow the same sequence of operations.
+    Considerations: Deterministic state machines, consistent order of operations.
+
+![state machine replication](images/theory/state%20machine%20replicaiton.png)
+
+#### **8.12.1 Limitations**
+
+![state machine replication limitations](images/theory/state%20machine%20replication%20limitations.png)
+![replication using causal broadcast](images/theory/replication%20using%20causal%20broadcast.png)
+
+![summary of broadcast](images/theory/summary%20of%20broadcast.png)
+
+### **8.13 Leaders for Consensus**
+
+![concensus system models](images/theory/concensus%20system%20models.png)
+
+    Single Leader: One node responsible for coordination.
+    Shadow Leader: Backup leader ready to take over.
+    Leader Crash: Mechanism to detect and handle leader failure.
+    Leader Elections: Process to choose a new leader.
+    Split Brain: Scenario where network partition leads to multiple leaders.
+    Network Partitioning: Handling communication breakdown between parts of the system.
+
+## **9. Consistency in Replicas**
 
 </div>
