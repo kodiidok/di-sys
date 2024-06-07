@@ -63,6 +63,22 @@
     - [**6.8 Lamport Clock**](#68-lamport-clock)
     - [**6.9 Vector Clock**](#69-vector-clock)
   - [**7. Broadcast Protocols**](#7-broadcast-protocols)
+    - [**7.1 Unicast**](#71-unicast)
+    - [**7.2 Broadcast**](#72-broadcast)
+    - [**7.3 Multicast**](#73-multicast)
+    - [**7.4 Point-to-Point Communication (Non-IP Multicast)**](#74-point-to-point-communication-non-ip-multicast)
+    - [**7.5 Best Effort vs. Reliable Communication**](#75-best-effort-vs-reliable-communication)
+    - [**7.6 Issues in Message Delivery**](#76-issues-in-message-delivery)
+    - [**7.7 Asynchronous, Partially Synchronous Timing Models**](#77-asynchronous-partially-synchronous-timing-models)
+    - [**7.8 Eager Reliable Broadcast**](#78-eager-reliable-broadcast)
+    - [**7.9 Gossip/Epidemic Protocol**](#79-gossipepidemic-protocol)
+    - [**7.10 Reliable Broadcast Paradigm**](#710-reliable-broadcast-paradigm)
+      - [**7.10.1 FIFO**](#7101-fifo)
+      - [**7.10.2 Causal**](#7102-causal)
+      - [**7.10.3 Total Order**](#7103-total-order)
+      - [**7.10.4 FIFO Total Order**](#7104-fifo-total-order)
+    - [**7.11 Implementing Fault Tolerance in Broadcast Protocols**](#711-implementing-fault-tolerance-in-broadcast-protocols)
+  - [**8. Replication**](#8-replication)
 
 <div style="page-break-after: always;"></div>
 
@@ -660,6 +676,129 @@ TCP is reliable, but doesn't solve two generals problem.
 ![vector clock ordering](images/theory/vector%20clock%20ordering.png)
 
 ## **7. Broadcast Protocols**
+
+    Why Broadcast Protocols in Distributed Systems?
+
+    - Data Replication: Ensuring all nodes have the same data.
+    - Coordination: Synchronizing actions among nodes.
+    - Fault Tolerance: Ensuring reliability and availability.
+
+![broadcast protocol architecture](images/theory/broadcast%20protocol%20architecture.png)
+
+### **7.1 Unicast**
+
+    Unicast is a communication method where data is sent from one sender to one specific receiver. Each message is individually addressed to a specific recipient.
+
+    Example: When you send an email to a single recipient, it is an example of unicast communication.
+
+### **7.2 Broadcast**
+
+    Broadcast is a method where a message is sent from one sender to all nodes in the network. Every node receives the same message simultaneously.
+
+    Example: Sending a message to all devices on a local network segment using network broadcast.
+
+### **7.3 Multicast**
+
+    Multicast involves sending a message from one sender to a specific group of nodes. Only the nodes that are part of the multicast group receive the message.
+
+    Example: Streaming a live video to a group of subscribers using multicast IP addresses.
+
+### **7.4 Point-to-Point Communication (Non-IP Multicast)**
+
+    Point-to-point communication involves direct communication between two nodes without relying on IP multicast.
+
+    Example: A direct TCP connection between two servers for data exchange.
+
+### **7.5 Best Effort vs. Reliable Communication**
+
+    Best Effort communication does not guarantee message delivery. Messages may be lost, duplicated, or received out of order.
+
+    Reliable Communication ensures that messages are delivered, typically in the correct order, and without duplication.
+
+### **7.6 Issues in Message Delivery**
+
+    Message Loss: In best-effort, messages may get lost. Solutions include acknowledgments and retransmissions.
+    Duplication: In reliable communication, unique message identifiers can help prevent duplicates.
+    Ordering: Out-of-order messages can be managed using sequence numbers or logical clocks.
+
+### **7.7 Asynchronous, Partially Synchronous Timing Models**
+
+    Asynchronous: No assumptions are made about the time taken for messages to be delivered or actions to be completed.
+    Partially Synchronous: Some bounds on message delivery times and execution speeds are known, which helps in designing more efficient protocols.
+
+### **7.8 Eager Reliable Broadcast**
+
+    When a node receives a message, it immediately sends it to all other nodes, ensuring fast and reliable delivery.
+
+![eager reliable](images/theory/eager%20reliable.png)
+
+### **7.9 Gossip/Epidemic Protocol**
+
+    A node tells a random subset of other nodes about a new update, which then tell other nodes, eventually reaching all nodes. This approach is robust and scalable.
+
+![gossip](images/theory/gossip.png)
+
+### **7.10 Reliable Broadcast Paradigm**
+
+    All nodes receive the same set of messages.
+    Messages are delivered without duplication.
+    The order of messages is preserved as needed (FIFO, Causal, Total Order).
+
+![reliable broadcast paradigm](images/theory/reliable%20broadcast%20paradigm.png)
+
+![broadcast models](images/theory/broadcast%20models.png)
+
+#### **7.10.1 FIFO**
+
+![fifo 1](images/theory/fifo%201.png)
+![fifo 2](images/theory/fifo%202.png)
+![fifo 3](images/theory/fifo%203.png)
+![fifo 4](images/theory/fifo%204.png)
+
+
+#### **7.10.2 Causal**
+
+![causal 1](images/theory/causal%201.png)
+
+#### **7.10.3 Total Order**
+
+![total order 1](images/theory/total%20order%201.png)
+![total order 2](images/theory/total%20order%202.png)
+![total order single leader](images/theory/total%20order%20single%20leader.png)
+![total order lamport clock](images/theory/total%20order%20single%20leader.png)
+
+    Neither of Single Leader approach or Lamport Clock approach are fault tolerant 
+
+#### **7.10.4 FIFO Total Order**
+
+    Sending all messages via a single leader
+    Concensus is needed to confirm the ordering of messages
+
+![concensus and total order braodcast](images/theory/concensus%20and%20total%20order%20braodcast.png)
+
+### **7.11 Implementing Fault Tolerance in Broadcast Protocols**
+
+    FIFO:
+
+        Fault Tolerance: Use acknowledgment and retransmission for message loss.
+        Example: If a message is lost, the sender retransmits until it is acknowledged.
+
+    Causal:
+
+        Fault Tolerance: Use vector clocks and ensure retransmission upon failure detection.
+        Example: Nodes track dependencies with vector clocks and retransmit if messages are missing.
+
+    Total Order:
+
+        Fault Tolerance: Use consensus algorithms (like Paxos or Raft) to agree on message order.
+        Example: Nodes use a consensus protocol to agree on a sequence number before delivering messages.
+
+    FIFO Total Order:
+
+        Fault Tolerance: Combine approaches from FIFO and total order, such as leader-based sequencing with acknowledgments.
+        Example: A leader assigns sequence numbers and ensures all nodes acknowledge receipt before confirming delivery.
+
+## **8. Replication**
 
 
 
