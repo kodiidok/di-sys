@@ -53,6 +53,16 @@
     - [**5.9 Berkeley Algorithm**](#59-berkeley-algorithm)
     - [**5.10 Time-of-Day and Monotonic Clocks**](#510-time-of-day-and-monotonic-clocks)
   - [**6. Ordering**](#6-ordering)
+    - [**6.1 Event**](#61-event)
+    - [**6.2 Message**](#62-message)
+    - [**6.3 Sent Order**](#63-sent-order)
+    - [**6.4 Recieved Order**](#64-recieved-order)
+    - [**6.5 Issues in Ordering**](#65-issues-in-ordering)
+    - [**6.6 Happens-Before Relationship**](#66-happens-before-relationship)
+    - [**6.7 Causality**](#67-causality)
+    - [**6.8 Lamport Clock**](#68-lamport-clock)
+    - [**6.9 Vector Clock**](#69-vector-clock)
+  - [**7. Broadcast Protocols**](#7-broadcast-protocols)
 
 <div style="page-break-after: always;"></div>
 
@@ -589,6 +599,67 @@ TCP is reliable, but doesn't solve two generals problem.
     Monotonic clocks are useful for measuring elapsed time and ordering events, while Time of Day clocks are used for absolute time representation.
 
 ## **6. Ordering**
+
+![ordering](images/theory/ordering.png)
+
+### **6.1 Event**
+
+    An event in a distributed system is any significant occurrence or action that can be distinctly identified. Events include sending or receiving messages, computation steps, and state changes in a process.
+
+### **6.2 Message**
+
+    A message is a unit of communication sent from one process to another in a distributed system. Messages are used to share information, synchronize actions, and coordinate tasks among distributed processes.
+
+### **6.3 Sent Order**
+
+    Sent order refers to the sequence in which messages are sent from a process. Maintaining the correct sent order ensures that messages are dispatched in the intended sequence, which is critical for the system's coherence and reliability.
+
+### **6.4 Recieved Order**
+
+    Received order refers to the sequence in which messages are received by a process. Ensuring the correct received order is crucial for the consistency of the system's state and the proper execution of operations based on the messages received.
+
+### **6.5 Issues in Ordering**
+
+    Network Delays: Variability in network delays can cause messages to arrive out of order.
+    Clock Skew: Differences in the clocks of distributed nodes can lead to inconsistencies in the perceived order of events.
+    Concurrency: Simultaneous actions by different processes can make it difficult to establish a single global order.
+    Fault Tolerance: Node failures and message losses can disrupt the intended order of events.
+
+### **6.6 Happens-Before Relationship**
+
+    If event A occurs before event B in the same process, then A → B.
+    If event A is the sending of a message and event B is the receipt of that message, then A → B.
+    If A → B and B → C, then A → C (transitivity).
+
+    It is possible that neither a → b nor b → a. In that case, a and b are concurrent  (a ǁ b)	
+
+![happens before](images/theory/happens%20before.png)
+
+### **6.7 Causality**
+
+    Causality in distributed systems refers to the relationship between events where one event is understood to have caused another. If event A causally affects event B, then A must happen before B. This ensures that the system's behavior is consistent with the cause-and-effect relationships of events.
+
+    When a → b, then a might have caused b 
+    When a ǁ b, known a cannot have caused b
+
+![causality](images/theory/causality.png)
+
+### **6.8 Lamport Clock**
+
+    Each process maintains a counter that is incremented for each event. When a process sends a message, it includes the counter value. Upon receiving a message, a process updates its counter to be greater than both its current value and the received counter value
+
+![lamport clock](images/theory/lamport%20clock.png)
+![lamport clock algorithm](images/theory/lamport%20clock%20algorithm.png)
+![lamport clock example](images/theory/lamport%20clock%20example.png)
+
+### **6.9 Vector Clock**
+
+    A vector clock is an advancement over Lamport clocks, providing a way to capture causality between events. Each process maintains a vector of counters, with one counter for each process in the system. When an event occurs, a process increments its own counter in the vector. When sending a message, it includes its vector. Upon receiving a message, a process updates its vector by taking the element-wise maximum of its own vector and the received vector. Vector clocks allow for the determination of concurrent, causally related, or causally unrelated events.
+
+![vector clock example](images/theory/vector%20clock%20example.png)
+![vector clock ordering](images/theory/vector%20clock%20ordering.png)
+
+## **7. Broadcast Protocols**
 
 
 
