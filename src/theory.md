@@ -103,8 +103,20 @@
     - [**9.4 Two-Phase Commit (2PC)**](#94-two-phase-commit-2pc)
       - [**9.4.1 Commit Phase Flow**](#941-commit-phase-flow)
       - [**9.4.2 Coordinator in Two-Phase Commit**](#942-coordinator-in-two-phase-commit)
-      - [**9.4.3 Algorithm**](#943-algorithm)
-    - [**9.5 Linearizability**](#95-linearizability)
+      - [**9.4.3 Algorithm for Fault Tolerant 2PC**](#943-algorithm-for-fault-tolerant-2pc)
+  - [**10. Linearizability**](#10-linearizability)
+    - [**10.1 Concept of Linearizability**](#101-concept-of-linearizability)
+    - [**10.2 Linearizability in Shared Memory Concurrency**](#102-linearizability-in-shared-memory-concurrency)
+    - [**10.3 Linearizability vs. Serializability**](#103-linearizability-vs-serializability)
+    - [**10.4 Abstracting Internals**](#104-abstracting-internals)
+    - [**10.5 Timing Dependencies**](#105-timing-dependencies)
+      - [**10.5.1 Overlapping Operations**](#1051-overlapping-operations)
+    - [**10.6 Quorum Reads and Writes Insufficient for Linearizability**](#106-quorum-reads-and-writes-insufficient-for-linearizability)
+    - [**10.7 Ensuring Linearizability with Read Repair**](#107-ensuring-linearizability-with-read-repair)
+    - [**10.8 Compare-and-Swap (CAS) Operations**](#108-compare-and-swap-cas-operations)
+    - [**10.9 Algorithm**](#109-algorithm)
+    - [**10.10 Issues of Linearizability**](#1010-issues-of-linearizability)
+  - [**11. Eventual Consistency**](#11-eventual-consistency)
 
 <div style="page-break-after: always;"></div>
 
@@ -1079,7 +1091,7 @@ console.log(post.getLikeCount());
 
     Conclusion: Two-phase commit's robust protocol ensures transactional integrity even in the event of coordinator failures, laying the foundation for practical applications in distributed systems.
 
-#### **9.4.3 Algorithm**
+#### **9.4.3 Algorithm for Fault Tolerant 2PC**
 
 ```bash
 on initialization for transaction T do
@@ -1118,8 +1130,91 @@ on delivering (Vote,T,replicaID,ok) by total order broadcast do
 end delivering (Vote,T,replicaID,ok) by total order broadcast
 ```
 
-### **9.5 Linearizability**
+## **10. Linearizability**
 
+    Two-phase commit and atomic commitment ensure that all nodes either commit or abort a transaction, even in the event of crashes.
 
+    What if multiple nodes are concurrently reading and writing some data? 
+    How to ensure those operations are consistent with each other?
+
+    Linearizability ensures consistency when multiple nodes read and write data simultaneously, making it the strongest widely used model for concurrent systems.
+
+### **10.1 Concept of Linearizability**
+
+    Linearizability ensures that a distributed system behaves as if it has a single copy of the data, with all operations occurring atomically on this single copy. From the client's perspective, despite multiple replicas, it appears as though there is only one copy of the data, simplifying programming and reducing the complexity of distributed systems.
+
+    Linearizability guarantees that any read operation returns the most up-to-date value, a concept also known as strong consistency. Unlike the vague term "strong consistency," linearizability is formally defined.
+
+### **10.2 Linearizability in Shared Memory Concurrency**
+
+    Linearizability's significance extends beyond distributed systems to shared memory concurrency on single computers. In systems with multiple CPU cores and separate memory caches, concurrent threads accessing the same memory location may encounter inconsistencies due to cache delays. This behavior mirrors that of replicated systems, as different cache levels resemble replication, highlighting the relevance of linearizability even within a single computer.
+
+### **10.3 Linearizability vs. Serializability**
+
+    Serializability concerns transaction isolation, ensuring transactions have equivalent effects as if executed serially. 
+
+    In contrast, linearizability focuses on replicating behavior as if there were a single replica, indicating multiple replicas behave uniformly.
+
+### **10.4 Abstracting Internals**
+
+    Linearizability, abstract away all of the internals, message communication, and replicas. From the client's point of view, a consistency model is defined purely in terms of what the client sees. This is useful because the consistency model is not tied to one particular implementation of a system or distributed algorithm. The behavior is only defined from the client's point of view, regardless of how the internals of the system are implemented.
+
+### **10.5 Timing Dependencies**
+
+    Timing dependencies between operations, such as a get operation following the completion of a set operation, imply that the get operation should observe a value of \( x \) as recent as the one written by the preceding set operation. This timing dependency extends across multiple nodes; for instance, if client 2 initiates a get operation after client 1's set operation, linearizability expects client 2 to perceive the most recent value \( v1 \), simulating the behavior of a single-copy data system with atomic operations.
+
+    This timing dependency looks like the "happens-before" relationship but is not the same. The "happens-before" relationship is defined in terms of sending and receiving messages, while linearizability is defined in terms of real-time. Linearizability assumes an observer who can discern precisely when operations start and finish, determining whether one operation commenced after another's completion.
+
+#### **10.5.1 Overlapping Operations**
+
+    When two operations overlap in real-time, they can occur in any order, as per linearizability. However, if the operations do not overlap, a timing dependency arises in linearizability, dictating the value to be read.
+
+### **10.6 Quorum Reads and Writes Insufficient for Linearizability**
+
+    Quorum reads and writes alone are not enough to guarantee linearizability. For example, if client 1 sets a value and only one replica gets updated quickly, while client 2 gets the updated value from a quorum including that replica, but client 3 reads from a quorum not including that replica, client 3 might see an older value. This violates linearizability because of the real-time dependency between client 2's and client 3's operations.
+
+![quorom insufficient for linearizability](images/theory/quorom%20insufficient%20for%20linearizability.png)
+
+### **10.7 Ensuring Linearizability with Read Repair**
+
+    When a client reads a value and detects that some replicas are outdated, it can resend the set request to those replicas and wait for at least one to respond. This ensures that the new value reaches a quorum of replicas before the get request finishes. Thus, any subsequent get request will see the up-to-date value. This approach ensures linearizability for get and set requests using quorum reads with read repair and blind writes.
+
+![linearizable quorom read writes](images/theory/linearizable%20quorom%20read%20writes.png)
+
+### **10.8 Compare-and-Swap (CAS) Operations**
+
+    However, for operations like compare-and-swap (CAS), a different approach is needed. Using total order broadcast, we can ensure linearizable CAS operations by packaging the CAS operation as a message and distributing it via total order broadcast. All replicas receive the requests in the same order, ensuring the same results on each replica. This approach provides linearizable operations by building on total order broadcast, creating a single-threaded view where all operations are delivered in the same total order on all nodes.
+
+### **10.9 Algorithm**
+
+```bash
+on request to perform get(x) do
+	total order broadcast (get,x) and wait for delivery 
+end
+
+on request to perform CAS(x,old,new) do
+	total order broadcast (CAS,x,old,new) and wait for delivery
+end
+
+on delivering (get,x) by total total order broadcast do
+	return localState[x] as result of operation get(x) 
+end
+
+on delivering CAS(x,old,new) by total order broadcast do
+	success := false
+	if localState[x] = old then
+		localState[x] :=new ; success :=true
+	end if 
+	return success as result of operation (CAS,x,old,new) 
+end
+```
+
+### **10.10 Issues of Linearizability**
+
+    Performance cost :  waiting / lots of messages 
+	Scalability limited : leader can be bottleneck 
+	Availability problem : if quorum of nodes cannot be contacted, operations cannot be processed 
+
+## **11. Eventual Consistency**
 
 </div>
