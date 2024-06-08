@@ -97,6 +97,14 @@
       - [**8.12.1 Limitations**](#8121-limitations)
     - [**8.13 Leaders for Consensus**](#813-leaders-for-consensus)
   - [**9. Consistency in Replicas**](#9-consistency-in-replicas)
+    - [**9.1 What is consistency in replicas?**](#91-what-is-consistency-in-replicas)
+    - [**9.2 Distributed Transactions**](#92-distributed-transactions)
+    - [**9.3 Atomic Commit vs Consensus**](#93-atomic-commit-vs-consensus)
+    - [**9.4 Two-Phase Commit (2PC)**](#94-two-phase-commit-2pc)
+      - [**9.4.1 Commit Phase Flow**](#941-commit-phase-flow)
+      - [**9.4.2 Coordinator in Two-Phase Commit**](#942-coordinator-in-two-phase-commit)
+      - [**9.4.3 Algorithm**](#943-algorithm)
+    - [**9.5 Linearizability**](#95-linearizability)
 
 <div style="page-break-after: always;"></div>
 
@@ -1008,5 +1016,110 @@ console.log(post.getLikeCount());
     Network Partitioning: Handling communication breakdown between parts of the system.
 
 ## **9. Consistency in Replicas**
+
+    "Consistency" is a term that has various meanings in different contexts.
+
+    In an ACID transaction, the C stands for Consistency. In this context, consistency refers to a property of a database state. A database is in a consistent state, and applying a good transaction moves the database from one consistent state to another.
+
+    For example, a university database might have a consistency requirement that whenever a course has at least one student enrolled, it must also have a lecturer. It must not be without a lecturer.
+
+    Read After Write consistency means that if a client makes a write and then reads back what it has just written, it should be able to see what was just written. This is unrelated to consistency in the sense of ACID.
+
+### **9.1 What is consistency in replicas?**
+
+    - Does that mean the replicas are in the same state?
+    - When exactly do they have to be in the same states?
+    - Could they be in the same state at different points in time?
+    - Could they be in different states at the same time?
+    - Could consistency be expressed in terms of what the results of read operations should be, what we expect?
+
+### **9.2 Distributed Transactions**
+
+    In the context of ACID transactions, atomicity ensures that a transaction either fully commits or aborts, preventing any partial updates. This binary choice is crucial for maintaining consistency. In distributed systems, atomicity must span across multiple nodes involved in a transaction. If any node fails, the transaction must abort on all nodes to avoid inconsistency, addressing the atomic commitment problem. Although this may seem similar to consensus, atomic commitment specifically requires unanimous agreement on commit or abort decisions, making it distinct from consensus mechanisms.
+
+### **9.3 Atomic Commit vs Consensus**
+
+    In consensus, multiple nodes propose values, and one is chosen by the algorithm, while in atomic commits, all nodes must vote on whether to commit a transaction. Atomic commit mandates unanimous agreement for either committing or aborting a transaction, making it more restrictive than consensus. Unlike consensus algorithms like Raft, where a quorum of nodes ensures continued operation, even one node failure in atomic commit can cause the entire transaction to abort. Two-Phase Commit (2PC) is commonly used to implement atomic commit.
+
+![atomic commit vs concensus](images/theory/atomic%20commit%20vs%20concensus.png)
+
+### **9.4 Two-Phase Commit (2PC)**
+
+    It's distinct from two-phase locking, focusing on atomicity rather than serializable isolation.
+
+    Starting the Two-Phase Commit: The client initiates the transaction across multiple nodes by sending a transaction identifier (T1). The transaction proceeds with reading and writing in the database.
+
+    Commit Request and Prepare Phase: The commit request goes to the transaction coordinator instead of directly to the database. The coordinator then sends a prepare message to all participating nodes, prompting them to write changes to disk and confirm their willingness to commit.
+
+    Promise of Future Commit: Once a database node agrees to commit, it promises to do so in the future. The responsibility now lies with the transaction coordinator to make the final decision.
+
+    Preparation without Transaction End: The prepare message instructs nodes to prepare for commit without actually finalizing the transaction.
+
+    Commit Phase: In phase two of two-phase commit, if the coordinator decides to commit, individual database nodes execute the commit, end the transaction, and release all locks.
+
+![two phase commit](images/theory/two%20phase%20commit.png)
+
+#### **9.4.1 Commit Phase Flow**
+
+    Transaction Initiation: Client starts the transaction.
+    Commit Request to Coordinator: Client sends commit request to the transaction coordinator.
+    Prepare Message to Participating Nodes: Coordinator sends prepare message to all database nodes.
+    Database Node Response: Nodes reply with readiness to commit.
+    Coordinator Decision: Coordinator decides whether to commit or abort.
+    Commit Phase: If commit, nodes execute commit and release locks.
+    Transaction Conclusion: Transaction concludes with either commit or abort based on coordinator's decision.
+
+#### **9.4.2 Coordinator in Two-Phase Commit**
+
+    Key Decision Point: Determines whether the transaction proceeds with commit or abort based on responses from participating nodes.
+
+    Handling Node Crashes: If a database node crashes, the coordinator aborts the transaction for all nodes. However, if the coordinator crashes, it must first decide on the transaction's outcome. This decision is stored on disk for recovery. Upon restarting, the coordinator communicates this decision to ensure consistency among nodes.
+
+    Ensuring Atomicity: Two-phase commit guarantees atomicity for distributed transactions by ensuring all nodes either commit or abort collectively.
+
+    Conclusion: Two-phase commit's robust protocol ensures transactional integrity even in the event of coordinator failures, laying the foundation for practical applications in distributed systems.
+
+#### **9.4.3 Algorithm**
+
+```bash
+on initialization for transaction T do
+    commitVote[T] :={};	replicas[T] :={};	decide[T] :=false
+end initialization
+
+on request to commit transaction T with participating node R do
+    for each r ∈ R do send (Prepare T,R) to r
+end request to commit transaction T with participating node R 
+
+on receiving (Prepare, T, R) at node replicaID do
+    replicas[T]
+    ok = “is transaction T able to commit on this replica”
+    total-order broadcast (Vote, T, replicaID, ok) to replica[T]
+end receiving (Prepare, T, R) at node replicaID do
+
+on a node suspects node replicaID to have crashed do
+    for each transaction T in which replicaID participated to
+        total order broadcast (Vote,T,replicaID, false) to replica[T]
+    end for
+end a node suspects node replicaID to have crashed 
+
+on delivering (Vote,T,replicaID,ok) by total order broadcast do
+	if replica ∉ commitVotes[T] ⋀ replicaID  ∈ replicas[T] ⋀  ⌐decided[T] then
+		if ok = true then
+			commitVotes[T] := commitVotes[T] ⋃ {replicas}  
+			if commitVotes[T] = replicas[T] then
+				decide[T] := true
+				commit transaction T at this node 
+			end if
+		else 
+			decided[T] := true
+			abort transaction T at this node
+		end if
+	end if
+end delivering (Vote,T,replicaID,ok) by total order broadcast
+```
+
+### **9.5 Linearizability**
+
+
 
 </div>
