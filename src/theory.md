@@ -117,6 +117,14 @@
     - [**10.9 Algorithm**](#109-algorithm)
     - [**10.10 Issues of Linearizability**](#1010-issues-of-linearizability)
   - [**11. Eventual Consistency**](#11-eventual-consistency)
+    - [**11.1 Illustration of Eventual Consistency: Calendar App**](#111-illustration-of-eventual-consistency-calendar-app)
+    - [**11.2 CAP Theorem**](#112-cap-theorem)
+    - [**11.3 Formalizing Eventual Consistency and Strong Eventual Consistency**](#113-formalizing-eventual-consistency-and-strong-eventual-consistency)
+    - [**11.4 Understanding Eventual Consistency**](#114-understanding-eventual-consistency)
+      - [**11.4.1 Strong Eventual Consistency:**](#1141-strong-eventual-consistency)
+      - [**11.4.2 Properties of Eventual Consistency:**](#1142-properties-of-eventual-consistency)
+      - [**11.4.3 Challenges with Eventual Consistency:**](#1143-challenges-with-eventual-consistency)
+      - [**11.4.4 Recap of Consistency Models:**](#1144-recap-of-consistency-models)
 
 <div style="page-break-after: always;"></div>
 
@@ -1216,5 +1224,64 @@ end
 	Availability problem : if quorum of nodes cannot be contacted, operations cannot be processed 
 
 ## **11. Eventual Consistency**
+
+### **11.1 Illustration of Eventual Consistency: Calendar App**
+
+    - Events added on one device sync within seconds to the other device.
+    - Each device maintains a replica of the calendar independently.
+    - Disabling communication (e.g., airplane mode) between devices prevents syncing.
+    - Changes made on one device during disconnection do not propagate to the other until reconnection.
+    - Conflicts arise when the same event is edited concurrently on disconnected devices.
+    - Conflict resolution involves the "last writer wins" policy, where one update takes precedence over the other.
+    - In the example, a change in event time overrides a change in event title during conflict resolution.
+    - Despite data loss in conflict resolution, both devices eventually reach a consistent state.
+
+### **11.2 CAP Theorem**
+
+    It is impossible to simultaneously guarantee all three of the following properties:
+
+    - Consistency: Every read receives the most recent write or an error.
+    - Availability: Every request receives a response, without the guarantee that it contains the most recent write.
+    - Partition tolerance: The system continues to operate despite network partitions (communication breakdowns) between nodes.
+
+    According to the CAP theorem, a distributed system can only prioritize two out of the three properties at any given time, meaning that it must trade off one for the other under certain conditions.
+
+![cap theorem](images/theory/cap%20theorem.png)
+
+### **11.3 Formalizing Eventual Consistency and Strong Eventual Consistency**
+
+    - The CAP theorem addresses systems facing network partitions, where some nodes cannot communicate with others.
+    - In such scenarios, a choice must be made between maintaining linearizability or ensuring availability.
+    - Illustrating with nodes A, B forming a quorum on one side of the partition, they can provide linearizable service.
+    - Node C on the other side faces a dilemma: wait for partition healing and risk unavailability or use local state, violating linearizability.
+    - This dilemma highlights the fundamental trade-off in systems prone to network partitions.
+
+### **11.4 Understanding Eventual Consistency**
+
+    - Eventual consistency is a broad category of consistency models used in distributed systems.
+    - It's chosen when communication with a quorum of nodes is not assumed.
+    - Allows each replica to process operations based on its local state without waiting for communication.
+    - Updates applied to one replica eventually propagate to others, aiming for all replicas to reach the same state eventually.
+
+#### **11.4.1 Strong Eventual Consistency:**
+    - A strengthened version of eventual consistency.
+    - Ensures that updates made on one replica will eventually be made on another.
+    - Requires replicas that have processed the same updates to be in the same state, even if applied in a different order.
+    - Focuses on convergence to the same final state despite different update sequences.
+
+#### **11.4.2 Properties of Eventual Consistency:**
+    - Operations can be processed locally without waiting for communication.
+    - Operations are fast, reliable, and don't rely on network round trips.
+    - Utilizes broadcast protocols like causal broadcast, FIFO broadcast, etc., for distributing updates between replicas.
+
+#### **11.4.3 Challenges with Eventual Consistency:**
+    - Concurrent updates from multiple replicas can lead to conflicts.
+    - Conflict resolution mechanisms like "last writer wins" or merge algorithms are necessary.
+
+#### **11.4.4 Recap of Consistency Models:**
+    - Overview of various consistency models and algorithms based on their assumptions about the system model.
+    - Progression from atomic commitment to eventual consistency, highlighting the trade-offs in terms of communication requirements, assumptions, and strength of consistency guarantees.
+
+![summary of consistency models](images/theory/summary%20of%20consistency%20models.png)
 
 </div>
