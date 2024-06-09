@@ -125,6 +125,15 @@
       - [**11.4.2 Properties of Eventual Consistency:**](#1142-properties-of-eventual-consistency)
       - [**11.4.3 Challenges with Eventual Consistency:**](#1143-challenges-with-eventual-consistency)
       - [**11.4.4 Recap of Consistency Models:**](#1144-recap-of-consistency-models)
+  - [**12. Concurrency Control**](#12-concurrency-control)
+    - [**12.1 Operation Based CRDT**](#121-operation-based-crdt)
+      - [**12.1.1 Algorithm**](#1211-algorithm)
+    - [**12.2 State Based CRDT**](#122-state-based-crdt)
+      - [**12.2.1 Algorithm**](#1221-algorithm)
+    - [**12.3 Opearational Transformations**](#123-opearational-transformations)
+    - [**12.4 Operation Based Text-CRDT**](#124-operation-based-text-crdt)
+      - [**12.4.1 Alogrithm**](#1241-alogrithm)
+    - [**12.5 Why Causal Broadcast for Operation Based Text-CRDT?**](#125-why-causal-broadcast-for-operation-based-text-crdt)
 
 <div style="page-break-after: always;"></div>
 
@@ -1283,5 +1292,160 @@ end
     - Progression from atomic commitment to eventual consistency, highlighting the trade-offs in terms of communication requirements, assumptions, and strength of consistency guarantees.
 
 ![summary of consistency models](images/theory/summary%20of%20consistency%20models.png)
+
+## **12. Concurrency Control**
+
+    Collaboration software allows multiple users to work on shared documents or databases simultaneously, such as Google Docs or calendar sync applications. Each user has their own local copy of the data, which they can update even when offline, with changes synced later. 
+
+    The challenge arises when multiple users make concurrent updates to the same document, requiring reconciliation to ensure consistency. Two main approaches are used: Conflict-Free Replicated Data Types (CRDTs), which include operation-based and state-based variants, and Operational Transformation.
+
+    For instance, in a scenario where a calendar event's title and time are concurrently updated on different devices, the goal is to merge these updates upon reconnection, maintaining consistency and ideally preserving all changes. This involves ensuring that both devices converge to the same information without data loss.
+
+![collaboration conflict resolution](images/theory/collaboration%20conflict%20resolution.png)
+
+### **12.1 Operation Based CRDT**
+
+    The Operation-based Map CRDT is an example of Conflict-Free Replicated Data Types (CRDTs), specifically an operation-based variant. It utilizes a map data model, similar to a map object in Java, with keys mapping to values. The goal is to ensure that for each key, there is exactly one value.
+
+    To achieve this, the Last-Writer-Wins approach is employed, where each update carries a timestamp indicating its order. When reading a value for a given key, the latest entry in the set of values is returned. When updating the map, a new timestamp is generated, and the key, value, and timestamp are sent via reliable broadcast.
+
+    Upon delivery of an update message, existing values for the same key are checked. If a previous value exists with a lower timestamp, it is overwritten with the new value. This process ensures that only one entry exists for each key, maintaining strong eventual consistency.
+
+    The algorithm relies on reliable broadcast for eventual delivery of updates to all replicas and ensures commutativity of update operations. This operation-based CRDT approach requires reliable broadcast to guarantee eventual consistency, as missing messages could lead to inconsistencies.
+
+![operation based map](images/theory/operation%20based%20map.png)
+
+#### **12.1.1 Algorithm**
+
+```bash
+on initialization do
+	value := {}
+end initialization
+
+on request to read value for key k do
+	if ∃ t,v,(t,k,v) ∈ values then 
+		return v
+	else return NULL
+end request to read value for key k
+
+on request to set value for key k  to value v do
+	t := newTimestamp()	∆ globally unique  lamport timestamp 
+	broadcast (set, t,k,v) by reliable broadcast (include self)
+end request to set value for key k  to value v 
+
+On delivering (set,t,k,v)  by reliable broadcast do
+	previous := {(t^′,k^′,v^′) ∈ values | k’=k }
+	if previous = {} ⋁∀(t^′,k^′,v^′) ∈ previous.t’ <t then
+		values := (values \ previous ) ∪  {(t,k,v)}
+	end if
+end delivering (set,t,k,v)  by reliable broadcast
+```
+
+### **12.2 State Based CRDT**
+
+    The State-based Map CRDT is another approach to achieving strong eventual consistency, differing from the operation-based CRDT. In this model, a merge operator is utilized to merge states from different replicas. The merge operator ensures commutativity, associativity, and idempotence.
+
+![state based map](images/theory/state%20based%20map.png)
+
+    The merge operator takes two sets of values, `s1` and `s2`, each containing triples of timestamp, key, and value. It merges these sets by taking the set union and retaining only the highest timestamp for each key-value pair. This process ensures that each key has only the most recent associated value.
+
+    To update the map in a state-based CRDT, a new timestamp is generated, and the local set of values is updated directly by removing any existing entry for the key and adding the new triple with the updated value. The entire set of values is then broadcasted to other replicas.
+
+    Upon receiving a set of values from another replica, the merge function is applied to merge it with the recipient's local set of values. This process is repeated for each incoming set of values, allowing replicas to converge to the latest state.
+
+    State-based CRDTs have advantages and trade-offs compared to operation-based CRDTs. While operation-based CRDTs have smaller message sizes due to broadcasting single operations, state-based CRDTs can tolerate message loss and duplication. This tolerance is due to the entire state being encoded in each message, allowing replicas to converge even if some messages are lost.
+
+    Additionally, state-based CRDTs can be used in various replication protocols beyond broadcast, such as quorum replication with anti-entropy protocols. This versatility makes state-based CRDTs suitable for different replication settings.
+
+![state based vs operation based map](images/theory/state%20based%20vs%20operation%20based%20map.png)
+
+#### **12.2.1 Algorithm**
+
+```bash
+on initialization do
+	value := {}
+end initialization
+
+on request to read value for key k do
+	if ∃ t,v,(t,k,v) ∈ values then 
+		return v
+	else return NULL
+end request to read value for key k
+
+on request to set value for key k  to value v do
+	t := newTimestamp()	∆ globally unique  lamport timestamp 
+	values := (t,k,v) ∈ values | k’  ≠ k ∪  {(t,k,v)}
+	broadcast values by best-effort broadcast  // entire state
+end request to set value for key k  to value v 
+
+On delivering V  by best-effort broadcast do
+	values := values ⊔V
+end delivering V  by best-effort broadcast
+```
+
+### **12.3 Opearational Transformations**
+
+    The demonstration showcases collaborative text editing, illustrated using Google Docs as an example. Two windows of Google Docs are displayed, where changes made in one window appear in the other. The demonstration highlights how network disconnections can lead to temporary inconsistencies in the documents. However, Google Docs automatically merges the changes once the network connection is restored.
+
+![collaborative text editing example](images/theory/collaborative%20text%20editing%20example.png)
+
+![collaborative text editing example 2](images/theory/collaborative%20text%20editing%20example%202.png)
+
+    The scenario is further explained using an example of two users, A and B, concurrently editing a document. An issue arises when concurrent operations, such as inserting characters at different indices, are not correctly synchronized between users, leading to inconsistencies in the documents.
+
+    Operational Transformation (OT) algorithms address this problem by transforming concurrent operations to maintain consistency. OT works by applying a transformation function to each operation based on concurrent operations from other users. This ensures that operations are applied correctly, even when performed concurrently.
+
+    While OT algorithms effectively resolve concurrency issues in collaborative editing, they typically require total order broadcast for communication between users. This means that updates must be delivered to all users in the same order, which can incur network communication costs.
+
+    Overall, OT algorithms play a crucial role in maintaining consistency in collaborative editing environments but may involve complex implementation details and require total order broadcast for optimal performance.
+
+### **12.4 Operation Based Text-CRDT**
+
+    The alternative to Operational Transformation (OT) is using a Conflict-Free Replicated Data Type (CRDT), which doesn't require total order broadcast but instead uses causal broadcast. The CRDT approach avoids the issue of indexes having different meanings due to concurrent operations by assigning unique identifiers to each character in the document. These identifiers consist of rational numbers, representing positions along the document's number line between 0 and 1. Characters are sorted in increasing order based on these position numbers, ensuring the correct document order. 
+
+![operation based text crdt](images/theory/operation%20based%20text%20crdt.png)
+
+    For example, inserting "b" at the start of the document assigns it a position of 0.5, while inserting "c" between "b" and the end of the document gives it a position of 0.75. When concurrent insertions occur, such as User A inserting "a" before "b" and User B inserting "d" between "c" and the end of the document, their chosen positions ensure that characters slot into the correct places without the need for index adjustments. Using arbitrary precision arithmetic for precision, these operations can be straightforwardly sent over the network and applied to maintain document consistency.
+
+#### **12.4.1 Alogrithm**
+
+```bash
+on initialization do
+	cℎars ≔{(0,null,⊢), (1,null,⊣)}
+end initialization
+
+on request to read character at index index do
+	let (p,n,v)≔ElementAt(cℎar,index+1) 
+				// skips the first placeholder character 
+	return v
+end request to read character at index index 	  
+
+on request to insert character v at index index  at node nodeID do
+	let (p_1,n_1,v_1)≔ElementAt(cℎars,index)
+	let (p_2,n_2,v_2)≔ElementAt(cℎars,index+1)
+	broadcast (insert, p_1+p_2/2,nodeID_,v) by causal broadcast
+end request to read character at index index 	  
+
+on delivering (insert, p,n_,v) by causal broadcast do
+	cℎars ≔cℎar ∪{p,n_,v}
+end delivering (insert, p,n_,v) by causal broadcast 
+
+on request to delete character at index index do 
+	let {p,n_,v}≔ElementAt(cℎars,index+1)
+	broadcast (delete,p,n)
+end request to delete character at index index
+
+on delivering (delete,p,n) by causal broadcast do
+	cℎars ≔{p^′,n^′_,v^′}∈cℎars | ¬ (p^′=p ⋀▒n^′=n)
+end delivering (delete,p,n) by causal broadcast 
+```
+
+### **12.5 Why Causal Broadcast for Operation Based Text-CRDT?**
+
+    The described CRDT ensures strong eventual consistency for a text document. Causal broadcast is used instead of reliable broadcast due to the need to maintain the order of insertions and deletions. This is because deletions must occur after insertions to ensure the deletion effectively removes the intended character. 
+
+    For different characters, insertions and deletions commute, ensuring consistency. However, efficiently implementing this CRDT can be challenging, especially with the inclusion of potentially large arbitrary position numbers for each character. Research into optimizing this process is ongoing, but beyond the scope of this course, which aims to provide an overview of CRDT algorithms.
+
+
 
 </div>
