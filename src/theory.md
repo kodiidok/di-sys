@@ -134,6 +134,14 @@
     - [**12.4 Operation Based Text-CRDT**](#124-operation-based-text-crdt)
       - [**12.4.1 Alogrithm**](#1241-alogrithm)
     - [**12.5 Why Causal Broadcast for Operation Based Text-CRDT?**](#125-why-causal-broadcast-for-operation-based-text-crdt)
+  - [**13. Google Spanner**](#13-google-spanner)
+    - [**13.1 Sharding and Atomic Commit**](#131-sharding-and-atomic-commit)
+    - [**13.2 Replication and Consensus**](#132-replication-and-consensus)
+    - [**13.3 Multi-Shard Transactions**](#133-multi-shard-transactions)
+    - [**13.4 Read-Only Transactions**](#134-read-only-transactions)
+    - [**13.5 Consistent Snapshots**](#135-consistent-snapshots)
+    - [**13.6 Multi-Version Concurrency Control (MVCC)**](#136-multi-version-concurrency-control-mvcc)
+    - [**13.7 Timestamp Generation and TrueTime**](#137-timestamp-generation-and-truetime)
 
 <div style="page-break-after: always;"></div>
 
@@ -1446,6 +1454,72 @@ end delivering (delete,p,n) by causal broadcast
 
     For different characters, insertions and deletions commute, ensuring consistency. However, efficiently implementing this CRDT can be challenging, especially with the inclusion of potentially large arbitrary position numbers for each character. Research into optimizing this process is ongoing, but beyond the scope of this course, which aims to provide an overview of CRDT algorithms.
 
+## **13. Google Spanner**
 
+    - Google’s Spanner is a large-scale database system designed to handle millions of nodes and petabytes of data distributed globally.
+    - It aims for strong consistency properties despite its vast scale, particularly serializable transaction isolation and linearizability for reads and writes.
 
+![google spanner consistency](images/theory/google%20spanner%20consistency.png)
+
+### **13.1 Sharding and Atomic Commit**
+
+    Sharding
+    - Data is split into subsets to store across multiple nodes since it's too large for a single node.
+    - Each node holds a replica of a data subset, allowing distributed transactions.
+    
+    Atomic Commit
+    - Transactions may involve multiple nodes; hence, atomic commit ensures changes are either committed on all nodes or aborted on all.
+    - Spanner uses classic algorithms to maintain these properties.
+
+### **13.2 Replication and Consensus**
+
+    State Machine Replication
+    - Nodes within a shard are replicated using state machine replication.
+    - Spanner uses the Paxos consensus algorithm for replication, similar to Raft.
+    
+    Two-Phase Locking (2PL)
+    - Serializable transaction isolation is achieved using two-phase locking.
+    - Shared locks are used for reads, and exclusive locks for writes, held until transaction commit.
+
+### **13.3 Multi-Shard Transactions**
+
+    Two-Phase Commit (2PC)
+    - Achieving atomicity across multiple shards is managed by two-phase commit.
+
+### **13.4 Read-Only Transactions**
+
+    Read-Only Transactions Without Locks
+    - Spanner supports read-only transactions without requiring locks.
+    - This is essential for operations like database backups, which need to read large datasets without locking.
+
+### **13.5 Consistent Snapshots**
+
+    Consistent Snapshots
+    - Read-only transactions observe consistent snapshots using timestamps.
+    - Ensures causality: if transaction T1 happened before T2, the snapshot reflects this order.
+
+![consistent snapshot](images/theory/consistent%20snapshot.png)
+
+### **13.6 Multi-Version Concurrency Control (MVCC)**
+
+    MVCC
+    - Each transaction has a timestamp, and data writes are tagged with this timestamp.
+    - Read-only transactions see the highest version of data not exceeding their snapshot timestamp.
+    - MVCC allows read-only transactions to ignore concurrent writes without locking.
+
+![mvcc](images/theory/mvcc.png)
+
+### **13.7 Timestamp Generation and TrueTime**
+
+    TrueTime
+    - Spanner ensures causally consistent timestamps using TrueTime, a system that captures timestamp uncertainty.
+    - TrueTime provides a range of possible timestamps, accounting for clock drift and synchronization errors.
+    - Transactions wait for the uncertainty interval to ensure non-overlapping timestamps, maintaining causality.
+
+    Minimizing Wait Time
+    - Accurate tracking and frequent synchronization with atomic clocks and GPS receivers reduce uncertainty intervals.
+    - Average uncertainty interval is kept short, enabling efficient transaction commits.
+
+![true time](images/theory/true%20time.png)
+![true time uncertainity](images/theory/true%20time%20uncertainity.png)
 </div>
